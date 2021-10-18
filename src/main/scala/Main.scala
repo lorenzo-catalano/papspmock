@@ -1,6 +1,5 @@
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
-import scala.reflect.io.File
 import scala.xml.XML
 
 object Main extends cask.MainRoutes{
@@ -38,19 +37,26 @@ object Main extends cask.MainRoutes{
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request) = {
     val xml = XML.loadString(new String(request.readAllBytes()))
-    val primitiva = (xml \\ "Body" \ "_").head.label
-    println(primitiva)
-    val path = Paths.get(s"/mocks/${primitiva}/OK.xml")
-    val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-    primitiva match {
-      case "paGetPaymentReq" =>
-        val nn =  (xml \\ "noticeNumber").text
-        val (iuv,_,_,_) = getNoticeNumberData(nn)
-        resString.replace("{CREDITORREFERENCEID}",iuv)
-      case _ =>
-        resString
-    }
+    val tcid = request.headers.get("tcid").map(_.head)
 
+    val primitiva = (xml \\ "Body" \ "_").head.label
+
+    val path = Paths.get(s"/mocks/${primitiva}/${tcid.getOrElse("OK")}.xml")
+    println(s"$primitiva -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
+    if(path.toFile.exists()){
+      val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+      primitiva match {
+        case "paGetPaymentReq" =>
+          val nn =  (xml \\ "noticeNumber").text
+          val (iuv,_,_,_) = getNoticeNumberData(nn)
+          resString.replace("{CREDITORREFERENCEID}",iuv)
+        case _ =>
+          resString
+      }
+    }else{
+      println(s"not found ${path}")
+      s"not found ${path}"
+    }
 
   }
 
