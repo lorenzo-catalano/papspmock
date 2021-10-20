@@ -39,7 +39,7 @@ object Main extends cask.MainRoutes{
     val payload = new String(request.readAllBytes())
     val xml = XML.loadString(payload)
     val tcid = request.headers.get("tcid").map(_.head)
-    val action = request.headers.get("SOAPAction").map(_.head)
+    val action = request.headers.get("soapaction").map(_.head)
 
     val primitiva = (xml \\ "Body" \ "_").head.label
 
