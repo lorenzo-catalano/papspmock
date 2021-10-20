@@ -36,13 +36,15 @@ object Main extends cask.MainRoutes{
 
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request) = {
-    val xml = XML.loadString(new String(request.readAllBytes()))
+    val payload = new String(request.readAllBytes())
+    val xml = XML.loadString(payload)
     val tcid = request.headers.get("tcid").map(_.head)
+    val action = request.headers.get("SOAPAction").map(_.head)
 
     val primitiva = (xml \\ "Body" \ "_").head.label
 
     val path = Paths.get(s"/mocks/${primitiva}/${tcid.getOrElse("OK")}.xml")
-    println(s"$primitiva -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
+    println(s"$primitiva(${action}) -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
     if(path.toFile.exists()){
       val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
       primitiva match {
