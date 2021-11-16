@@ -1,5 +1,6 @@
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
+import java.time.LocalDateTime
 import scala.xml.XML
 
 object Main extends cask.MainRoutes{
@@ -31,11 +32,13 @@ object Main extends cask.MainRoutes{
 
   @cask.get("/")
   def hello() = {
-    "mock server up"
+    println(s"/ ${LocalDateTime.now()}")
+    """{"name":"addios"}"""
   }
 
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request) = {
+//    Thread.sleep(132000)
     val payload = new String(request.readAllBytes())
     val xml = XML.loadString(payload)
     val tcid = request.headers.get("tcid").map(_.head)
@@ -44,7 +47,7 @@ object Main extends cask.MainRoutes{
     val primitiva = (xml \\ "Body" \ "_").head.label
 
     val path = Paths.get(s"/mocks/${primitiva}/${tcid.getOrElse("OK")}.xml")
-    println(s"$primitiva(${action}) -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
+    println(s"${LocalDateTime.now()} $primitiva(${action}) -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
     if(path.toFile.exists()){
       val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
       primitiva match {
