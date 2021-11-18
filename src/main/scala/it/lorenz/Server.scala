@@ -10,6 +10,7 @@ import java.time.LocalDateTime
 import java.util.Base64
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.Try
 import scala.xml.XML
 
 
@@ -58,58 +59,59 @@ object Server extends cask.MainRoutes{
 
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request) = {
-    //    Thread.sleep(132000)
-    val payload = new String(request.readAllBytes())
-    val xml = XML.loadString(payload)
-    val tcid = request.headers.get("tcid").map(_.head)
-    val action = request.headers.get("soapaction").map(_.head)
 
-    val primitiva = (xml \\ "Body" \ "_").head.label
+    Try({
+      val payload = new String(request.readAllBytes())
+      val xml = XML.loadString(payload)
+      val tcid = request.headers.get("tcid").map(_.head)
+      val action = request.headers.get("soapaction").map(_.head)
 
-    val path = Paths.get(s"/mocks/${primitiva}/${tcid.getOrElse("OK")}.xml")
-    println(s"${LocalDateTime.now()} $primitiva(${action}) -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
-    if(path.toFile.exists()){
-      val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-      primitiva match {
-        case "pspChiediListaRT" => {
+      val primitiva = (xml \\ "Body" \ "_").head.label
 
-          val canale = (xml \\ "identificativoCanale").text
-          val rpts = Await.result(onlineRepository.getForChiediLista(canale),Duration.Inf)
-          val sss = rpts.map(s=>{
-            <elementoListaRTResponse>
-              <identificativoDominio>{s.idDominio}</identificativoDominio>
-              <identificativoUnivocoVersamento>{s.iuv}</identificativoUnivocoVersamento>
-              <codiceContestoPagamento>{s.ccp}</codiceContestoPagamento>
-            </elementoListaRTResponse>
-          })
-          resString.replace("{ELEMENTI}",sss.mkString("\n"))
+      val path = Paths.get(s"/mocks/${primitiva}/${tcid.getOrElse("OK")}.xml")
+      println(s"${LocalDateTime.now()} $primitiva(${action}) -> ${primitiva}/${tcid.getOrElse("OK")}.xml")
+      if(path.toFile.exists()){
+        val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+        primitiva match {
+          case "pspChiediListaRT" => {
+
+            val canale = (xml \\ "identificativoCanale").text
+            val rpts = Await.result(onlineRepository.getForChiediLista(canale),Duration.Inf)
+            val sss = rpts.map(s=>{
+              <elementoListaRTResponse>
+                <identificativoDominio>{s.idDominio}</identificativoDominio>
+                <identificativoUnivocoVersamento>{s.iuv}</identificativoUnivocoVersamento>
+                <codiceContestoPagamento>{s.ccp}</codiceContestoPagamento>
+              </elementoListaRTResponse>
+            })
+            resString.replace("{ELEMENTI}",sss.mkString("\n"))
+          }
+
+          case "pspChiediRT" =>
+            val dom =(xml \\ "identificativoDominio").text
+            val iuv = (xml \\ "identificativoUnivocoVersamento").text
+            val ccp = (xml \\ "codiceContestoPagamento").text
+            val pathrt = Paths.get(s"/mocks/pspChiediRT/rt.xml")
+            val rt = new String(Files.readAllBytes(pathrt), StandardCharsets.UTF_8)
+            val rtrep = rt
+              .replace("{pa}",dom)
+              .replace("{iuv}",iuv)
+              .replace("{ccp}",ccp)
+            resString.replace("{RT}",Base64.getEncoder.encodeToString(rtrep.getBytes))
+
+          case "paGetPaymentReq" =>
+            val nn =  (xml \\ "noticeNumber").text
+            val (iuv,_,_,_) = getNoticeNumberData(nn)
+            resString.replace("{CREDITORREFERENCEID}",iuv)
+
+          case _ =>
+            resString
         }
-
-        case "pspChiediRT" =>
-          Thread.sleep((Math.random()*500).toLong)
-          val dom =(xml \\ "identificativoDominio").text
-          val iuv = (xml \\ "identificativoUnivocoVersamento").text
-          val ccp = (xml \\ "codiceContestoPagamento").text
-          val pathrt = Paths.get(s"/mocks/pspChiediRT/rt.xml")
-          val rt = new String(Files.readAllBytes(pathrt), StandardCharsets.UTF_8)
-          val rtrep = rt
-            .replace("{pa}",dom)
-            .replace("{iuv}",iuv)
-            .replace("{ccp}",ccp)
-          resString.replace("{RT}",Base64.getEncoder.encodeToString(rtrep.getBytes))
-
-        case "paGetPaymentReq" =>
-          val nn =  (xml \\ "noticeNumber").text
-          val (iuv,_,_,_) = getNoticeNumberData(nn)
-          resString.replace("{CREDITORREFERENCEID}",iuv)
-
-        case _ =>
-          resString
+      }else{
+        println(s"not found ${path}")
+        s"not found ${path}"
       }
-    }else{
-      println(s"not found ${path}")
-      s"not found ${path}"
-    }
+    }).getOrElse("Error")
 
   }
 
