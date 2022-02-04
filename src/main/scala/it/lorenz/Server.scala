@@ -54,19 +54,27 @@ object Server extends cask.MainRoutes {
     (iuv, segregazione, progressivo, auxValue)
   }
 
-  @cask.get("/")
+  @cask.get("/alive")
   def hello() = {
-    s"""{"countChiediRT":"$countChiediRT","countAckRT":"$countAckRT"}"""
+    Thread.sleep(4000)
+    s"""OK"""
   }
 
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request) = {
+
+    val payload = new String(request.readAllBytes())
+
     countChiediRT.incrementAndGet()
     Try({
-      val payload = new String(request.readAllBytes())
       val xml = XML.loadString(payload)
       val tcid = request.headers.get("tcid").map(_.head)
       val action = request.headers.get("soapaction").map(_.head)
+
+      println(action)
+      if (action.contains("\"pspInviaCarrelloRPTCarte\"")) {
+        Thread.sleep(8000)
+      }
 
       val primitiva = (xml \\ "Body" \ "_").head.label
 
