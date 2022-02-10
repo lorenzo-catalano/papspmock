@@ -7,6 +7,7 @@ import slick.util.AsyncExecutor
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{ Files, Paths }
+import java.time.{ LocalDate, LocalDateTime }
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Await
@@ -71,10 +72,11 @@ object Server extends cask.MainRoutes {
       val tcid = request.headers.get("tcid").map(_.head)
       val action = request.headers.get("soapaction").map(_.head)
 
-      println(action)
-      if (action.contains("\"pspInviaCarrelloRPTCarte\"")) {
-        Thread.sleep(8000)
-      }
+      println(s"${action.getOrElse("no action")} - ${LocalDateTime.now()}")
+//      if (action.contains("\"pspNotifyPayment\"")) {
+//        println("sleeping")
+//        Thread.sleep(8000)
+//      }
 
       val primitiva = (xml \\ "Body" \ "_").head.label
 
