@@ -62,21 +62,87 @@ object Server extends cask.MainRoutes {
   }
 
   @cask.post("/", subpath = true)
-  def doThing(request: cask.Request) = {
+  def doThing(request: cask.Request): cask.Response[String] = {
 
+//    Thread.sleep(11000)
+    print(s"/${request.remainingPathSegments.mkString("/")} ")
     val payload = new String(request.readAllBytes())
 
-    countChiediRT.incrementAndGet()
+    val tcid = request.headers.get("tcid").map(_.head)
+    val action = request.headers.get("soapaction").map(_.head)
+
+    val (folder, tipo) = if (action.isEmpty) {
+      request.remainingPathSegments.last -> "json"
+    } else {
+      action.get.replaceAll("\"", "") -> "xml"
+    }
+
+    if (action.contains("\"pspNotifyPayment\"") || folder == "sendpaymentresult") {
+      cask.Response("", statusCode = 404)
+//      Thread.sleep(11000)
+    } else {
+      println(s"${action.getOrElse("no action")} - ${LocalDateTime.now()}")
+
+      val path = Paths.get(s"${basepath}/mocks/${folder}/${tcid.getOrElse("OK")}.$tipo")
+
+      folder match {
+        case "pspChiediRT" =>
+          val xml = XML.loadString(payload)
+          val dom = (xml \\ "identificativoDominio").text
+          val iuv = (xml \\ "identificativoUnivocoVersamento").text
+          val ccp = (xml \\ "codiceContestoPagamento").text
+          val pathrt = Paths.get(s"$basepath/mocks/pspChiediRT/rt.xml")
+          val rt = new String(Files.readAllBytes(pathrt), StandardCharsets.UTF_8)
+          val rtrep = rt.replace("{pa}", dom).replace("{iuv}", iuv).replace("{ccp}", ccp)
+          val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+          val resStringUpd = resString.replace("{RT}", Base64.getEncoder.encodeToString(rtrep.getBytes))
+
+          cask.Response(resStringUpd, statusCode = 200)
+        case "pspChiediListaRT" =>
+          val xml = XML.loadString(payload)
+          val canale = (xml \\ "identificativoCanale").text
+          val rpts = Await.result(onlineRepository.getForChiediLista(canale), Duration.Inf)
+
+          val sss = rpts.map(s => {
+            <elementoListaRTResponse>
+              <identificativoDominio>{s.idDominio}</identificativoDominio>
+              <identificativoUnivocoVersamento>{s.iuv}</identificativoUnivocoVersamento>
+              <codiceContestoPagamento>{s.ccp}</codiceContestoPagamento>
+            </elementoListaRTResponse>
+          })
+
+          println(s"sending response pspChiediListaRT canale $canale")
+
+          val resString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+
+          val resStringUpd = resString.replace("{ELEMENTI}", sss.mkString("\n"))
+
+          cask.Response(resStringUpd, statusCode = 200)
+        case "paGetPayment" =>
+          val xml = XML.loadString(payload)
+          val nn = (xml \\ "noticeNumber").text
+          val (iuv, _, _, _) = getNoticeNumberData(nn)
+
+          cask.Response(new String(Files.readAllBytes(path), StandardCharsets.UTF_8).replace("{CREDITORREFERENCEID}", iuv), statusCode = 200)
+        case _ =>
+          if (path.toFile.exists()) {
+
+            cask.Response(new String(Files.readAllBytes(path), StandardCharsets.UTF_8), statusCode = 200)
+          } else {
+
+            cask.Response(s"not found ${path}", statusCode = 200)
+          }
+      }
+    }
+
+    /*countChiediRT.incrementAndGet()
     Try({
       val xml = XML.loadString(payload)
-      val tcid = request.headers.get("tcid").map(_.head)
-      val action = request.headers.get("soapaction").map(_.head)
-
       println(s"${action.getOrElse("no action")} - ${LocalDateTime.now()}")
-//      if (action.contains("\"pspNotifyPayment\"")) {
-//        println("sleeping")
-//        Thread.sleep(8000)
-//      }
+      if (action.contains("\"paaInviaRT\"")) {
+        println("sleeping")
+        Thread.sleep(20000)
+      }
 
       val primitiva = (xml \\ "Body" \ "_").head.label
 
@@ -132,7 +198,7 @@ object Server extends cask.MainRoutes {
         println(s"not found ${path}")
         s"not found ${path}"
       }
-    }).getOrElse("Error")
+    }).getOrElse("Error")*/
 
   }
 
