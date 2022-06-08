@@ -1,0 +1,12 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:paf="http://pagopa-api.pagopa.gov.it/pa/paForNode.xsd">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <paf:paDemandPaymentNoticeResponse>
+         <outcome>OK</outcome>
+         <qrCode>
+            <fiscalCode>77777777777</fiscalCode>
+            <noticeNumber>124585856958659568</noticeNumber>
+         </qrCode>
+      </paf:paDemandPaymentNoticeResponse>
+   </soapenv:Body>
+</soapenv:Envelope>
