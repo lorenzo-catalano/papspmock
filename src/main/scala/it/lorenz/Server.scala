@@ -57,19 +57,24 @@ object Server extends cask.MainRoutes {
 
   @cask.get("/alive")
   def hello() = {
-    Thread.sleep(4000)
     s"""OK"""
   }
 
   @cask.post("/", subpath = true)
   def doThing(request: cask.Request): cask.Response[String] = {
-
-//    Thread.sleep(11000)
-    print(s"/${request.remainingPathSegments.mkString("/")} ")
+    val action = request.headers.get("soapaction").map(_.head)
+    println(s"/${request.remainingPathSegments.mkString("/")}")
     val payload = new String(request.readAllBytes())
 
-    val tcid = request.headers.get("tcid").map(_.head)
-    val action = request.headers.get("soapaction").map(_.head)
+    val tcid = request.headers.get("tcid").map(_.head) match {
+      case Some(value) if value.contains("timeout_") =>
+        val t = value.split("_")(1).toLong
+        println(s"sleeping ${t}")
+        Thread.sleep(t)
+        Some(value.split("_")(3))
+      case Some(v) => Some(v)
+      case None    => Some("OK")
+    }
 
     val (folder, tipo) = if (action.isEmpty) {
       request.remainingPathSegments.last -> "json"
@@ -118,7 +123,7 @@ object Server extends cask.MainRoutes {
           val resStringUpd = resString.replace("{ELEMENTI}", sss.mkString("\n"))
 
           cask.Response(resStringUpd, statusCode = 200)
-        case "paGetPayment" =>
+        case "paGetPayment" | "paGetPaymentV2" =>
           val xml = XML.loadString(payload)
           val nn = (xml \\ "noticeNumber").text
           val (iuv, _, _, _) = getNoticeNumberData(nn)
