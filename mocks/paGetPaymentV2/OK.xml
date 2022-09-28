@@ -64,11 +64,11 @@
                      <!--1 to 10 repetitions:-->
                      <mapEntry>
                         <key>METADATA1</key>
-                        <value>M1Value</value>
+                        <value>"22"</value>
                      </mapEntry>
                      <mapEntry>
                         <key>METADATA2</key>
-                        <value>M2Value</value>
+                        <value>22</value>
                      </mapEntry>
                   </metadata>
                </transfer>
