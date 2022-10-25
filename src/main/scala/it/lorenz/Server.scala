@@ -143,4 +143,6 @@ object Server extends cask.MainRoutes {
 
   initialize()
 
+  println("Server up and running")
+
 }
